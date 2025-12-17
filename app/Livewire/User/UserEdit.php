@@ -9,7 +9,7 @@ class UserEdit extends Component
 {
   public $title = 'User (Edit)';
   public $id;
-  public $name, $bukti_penerimaan_id, $created_by, $updated_by, $is_activated;
+  // public $name, $bukti_penerimaan_id, $created_by, $updated_by, $is_activated;
   public string $url = '/user';
 
   public function render()
@@ -25,15 +25,6 @@ class UserEdit extends Component
       ->first();
   }
 
-  public function loadData()
-  {
-    $user = User::findOrFail($this->id);
-    $this->name = $user->name;
-    $this->bukti_penerimaan_id = $user->bukti_penerimaan_id;
-    $this->created_by = $user->created_by;
-    $this->updated_by = $user->updated_by;
-    $this->is_activated = $user->is_activated;
-  }
 
 
 

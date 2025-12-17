@@ -49,10 +49,6 @@ class UserIndex extends Component
         DB::transaction(function () use ($id) {
             $user = User::with(['detail', 'avatar'])->findOrFail($id);
 
-            // hapus relasi manual kalau belum cascade
-            $user->detail()?->delete();
-            $user->avatar()?->delete();
-
             $user->delete();
         });
 
