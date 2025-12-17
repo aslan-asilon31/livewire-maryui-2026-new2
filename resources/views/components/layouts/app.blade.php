@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{{ isset($title) ? $title . ' - ' . config('app.name') : config('app.name') }}</title>
-
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
@@ -25,15 +25,15 @@
   </x-nav>
 
   {{-- MAIN --}}
-  <x-main>
+  <x-main class="">
     {{-- SIDEBAR --}}
-    <x-slot:sidebar drawer="main-drawer" collapsible class="bg-base-100 lg:bg-inherit">
+    <x-slot:sidebar drawer="main-drawer" collapsible class="!bg-white lg:bg-inherit border-r-1 ">
 
       {{-- BRAND --}}
       {{-- <x-app-brand class="px-5 pt-4" /> --}}
 
       <div class="px-5 pt-4">
-        <b>アスラン</b>
+        <b>KBN - アスラン</b>
       </div>
 
       {{-- MENU --}}
@@ -55,13 +55,13 @@
         @endif
 
         <x-menu-item title="Dashboard" icon="o-home" link="/" />
-        <x-menu-item title="Report" icon="o-document-text" link="/report" />
+        <x-menu-item title="User" icon="o-users" link="/users" />
+        {{-- <x-menu-item title="Report" icon="o-document-text" link="/report" />
         <x-menu-item title="Sales" icon="o-shopping-bag" link="/sales" />
-        <x-menu-item title="Customer" icon="o-users" link="/customer" />
         <x-menu-item title="Vendor" icon="o-truck" link="/vendor" />
         <x-menu-item title="Inventory" icon="o-cube" link="/inventory" />
         <x-menu-item title="Procurement" icon="o-shopping-cart" link="/procurement" />
-        <x-menu-item title="Finance" icon="o-credit-card" link="/finance" />
+        <x-menu-item title="Finance" icon="o-credit-card" link="/finance" /> --}}
 
 
         <x-menu-sub title="Settings" icon="o-cog-6-tooth">
@@ -72,7 +72,7 @@
     </x-slot:sidebar>
 
     {{-- The `$slot` goes here --}}
-    <x-slot:content>
+    <x-slot:content class="!bg-white">
       {{ $slot }}
     </x-slot:content>
   </x-main>
