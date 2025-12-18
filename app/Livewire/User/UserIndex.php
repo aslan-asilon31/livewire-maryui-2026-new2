@@ -6,29 +6,102 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\UsersExport;
+use function PHPUnit\Framework\isEmpty;
+use Livewire\WithFileUploads;
+use App\Imports\UsersImport;
+use Illuminate\Support\Facades\Storage;
 
 class UserIndex extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     public string $title = 'User Management';
-    public string $url = '/user';
-
+    public string $url = '/users';
+    public $file;
     public string $search = '';
     public bool $filterDrawer = false;
+    public bool $drawerImport = false;
+    public bool $drawerExport = false;
 
     public array $sortBy = ['column' => 'id', 'direction' => 'desc'];
 
     public function filter(): void
     {
+        $validatedData = $this->validate(
+            [
+                'filterForm.name' => 'nullable|string|min:5',
+                'filterForm.email' => 'nullable|string|min:5',
+                'filterForm.is_activated' => 'nullable',
+                'filterForm.queue_number' => 'nullable',
+            ],
+        );
+        $this->validatedFilterForm =  $validatedData['filterForm'];
         $this->resetPage();
         $this->filterDrawer = false;
     }
+
+    public function import()
+    {
+        $this->validate([
+            'file' => 'required|file|mimes:xlsx,xls',
+        ]);
+
+        Excel::import(new UsersImport, $this->file);
+
+        session()->flash('message', 'User berhasil diimport');
+        $this->reset('file');
+    }
+
+
+    public function export()
+    {
+        return Excel::download(new UsersExport, 'users.xlsx');
+    }
+
+    public function toggleActive(int $userId): void
+    {
+        DB::beginTransaction();
+        try {
+            $user = User::findOrFail($userId);
+
+            $old = $user->is_activated;
+            if ($old == 1) {
+                $new = 0;
+            } else {
+                $new = 1;
+            }
+            $user->update([
+                'is_activated' => $new,
+            ]);
+
+
+            DB::commit();
+
+            $this->refresh();
+            $this->resetPage(); // reset pagination, sehingga getRowsProperty dipanggil ulang
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+        }
+    }
+
+
+
 
     public array $filterForm = [
         'name' => null,
         'email' => null,
         'is_activated' => null,
+        'queue_number' => null,
+    ];
+
+    public array $validatedFilterForm = [
+        'name' => null,
+        'email' => null,
+        'is_activated' => null,
+        'queue_number' => null,
     ];
 
 
@@ -38,8 +111,9 @@ class UserIndex extends Component
             'name' => null,
             'email' => null,
             'is_activated' => null,
+            'queue_number' => null,
         ];
-
+        $this->validatedFilterForm = $this->filterForm;
         $this->search = '';
         $this->resetPage();
     }
@@ -57,13 +131,14 @@ class UserIndex extends Component
     }
 
     public array $headers = [
-        ['key' => 'id', 'label' => 'ID', 'sortable' => true],
-        ['key' => 'avatar', 'label' => 'Avatar'],
-        ['key' => 'name', 'label' => 'Name', 'sortable' => true],
-        ['key' => 'email', 'label' => 'Email', 'sortable' => true],
-        // ['key' => 'queue_number', 'label' => 'Queue'],
-        ['key' => 'is_activated', 'label' => 'Active'],
-        ['key' => 'action', 'label' => 'Action'],
+        ['key' => 'id', 'isAvailable' => true, 'label' => '#', 'sortable' => true,  'class' => 'border'],
+        ['key' => 'avatar', 'label' => 'Avatar',  'class' => 'border'],
+        ['key' => 'name', 'label' => 'Name', 'sortable' => true,  'class' => 'border'],
+        ['key' => 'position', 'label' => 'Jabatan', 'sortable' => true, 'class' => 'border'],
+        ['key' => 'email', 'label' => 'Email', 'sortable' => true,  'class' => 'border'],
+        ['key' => 'queue_number', 'label' => 'Queue',  'class' => 'border'],
+        ['key' => 'is_activated', 'label' => 'Active',  'class' => 'border'],
+        ['key' => 'action', 'label' => 'Action',  'class' => 'border'],
     ];
 
     public function mount() {}
@@ -73,11 +148,11 @@ class UserIndex extends Component
         $this->resetPage();
     }
 
-
+    //
     public function getRowsProperty()
     {
         return User::query()
-            ->with(['avatar'])
+            ->with(['avatar', 'roles'])
 
             // Search global
             ->when($this->search, function ($q) {
@@ -88,20 +163,26 @@ class UserIndex extends Component
             })
 
             // Filter: name
-            ->when(!empty($this->filterForm['name']), function ($q) {
-                $q->where('name', 'like', '%' . $this->filterForm['name'] . '%');
+            ->when(!empty($this->validatedFilterForm['name'] ?? ''), function ($q) {
+                $q->where('name', 'like', '%' . $this->validatedFilterForm['name'] . '%');
             })
 
             // Filter: email
-            ->when(!empty($this->filterForm['email']), function ($q) {
-                $q->where('email', 'like', '%' . $this->filterForm['email'] . '%');
+            ->when(!empty($this->validatedFilterForm['email'] ?? ''), function ($q) {
+                $q->where('email', 'like', '%' . $this->validatedFilterForm['email'] . '%');
             })
 
+            // Filter: queue_number
+            ->when(!empty($this->validatedFilterForm['queue_number'] ?? ''), function ($q) {
+                $q->where('queue_number', 'like', '%' . $this->validatedFilterForm['queue_number'] . '%');
+            })
+
+
             // Filter: is_activated (handle null / '')
-            ->when(
-                $this->filterForm['is_activated'] !== null && $this->filterForm['is_activated'] !== '',
-                fn($q) => $q->where('is_activated', (int) $this->filterForm['is_activated'])
-            )
+            ->when($this->validatedFilterForm['is_activated'], function ($q) {
+                $isActivated = filter_var($this->validatedFilterForm['is_activated'], FILTER_VALIDATE_BOOLEAN);
+                $q->where('is_activated', $isActivated);
+            })
 
             ->orderBy($this->sortBy['column'], $this->sortBy['direction'])
             ->paginate(10);

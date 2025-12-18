@@ -69,6 +69,7 @@ class UserSeeder extends Seeder
                     'email_verified_at' => $userCreatedAt->copy()->addMinutes($faker->numberBetween(1, 600)),
                     'queue_number' => $index + 1,
                     'password' => Hash::make('password'),
+                    'is_activated' => rand(0, 1),
                     'remember_token' => Str::random(10),
                     'created_at' => $userCreatedAt,
                     'updated_at' => $userUpdatedAt,

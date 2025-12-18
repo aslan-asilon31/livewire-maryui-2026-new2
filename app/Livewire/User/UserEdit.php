@@ -10,7 +10,7 @@ class UserEdit extends Component
   public $title = 'User (Edit)';
   public $id;
   // public $name, $bukti_penerimaan_id, $created_by, $updated_by, $is_activated;
-  public string $url = '/user';
+  public string $url = '/users';
 
   public function render()
   {

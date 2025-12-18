@@ -33,7 +33,7 @@
       {{-- <x-app-brand class="px-5 pt-4" /> --}}
 
       <div class="px-5 pt-4">
-        <b>KBN - アスラン</b>
+        <b>アスラン</b>
       </div>
 
       {{-- MENU --}}

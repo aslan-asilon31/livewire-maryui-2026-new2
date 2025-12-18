@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             KpiSeeder::class,
             UserSeeder::class,
             FileSeeder::class,
+            JabatanSeeder::class,
         ]);
     }
 }

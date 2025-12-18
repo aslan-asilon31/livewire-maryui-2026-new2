@@ -10,11 +10,11 @@ use IcehouseVentures\LaravelChartjs\Facades\Chartjs;
 use Illuminate\Support\Facades\DB;
 use App\Models\UserDetail;
 
-class UserCrudForm extends Component
+class UserChart extends Component
 {
   // public string $title = 'User';
 
-  public string $title = 'User Management';
+  public string $title = '';
   public string $url = '/users';
 
   public bool $isEditMode = false;
@@ -22,11 +22,18 @@ class UserCrudForm extends Component
 
   public UserForm $masterForm;
 
+  // SAFE for Livewire (arrays only)
   public array $kpiChart = [];        // labels, scores, weights
   public array $kpiTrendChart = [];   // labels, scores
 
   public function mount(?int $id = null): void
   {
+    if (!$id) {
+      $lastQueue = (int) (User::max('queue_number') ?? 0);
+      $this->masterForm->queue_number = $lastQueue + 1;
+
+      return;
+    }
 
     $user = User::query()
       ->with([
@@ -106,6 +113,104 @@ class UserCrudForm extends Component
     $this->title = 'Detail User';
   }
 
+  private function buildCharts(): array
+  {
+    if (!$this->isReadonly || empty($this->kpiChart['labels'])) {
+      return [
+        'kpiFactorBarChart' => null,
+        'kpiWeightDoughnutChart' => null,
+        'kpiFinalLineChart' => null,
+      ];
+    }
+
+    $uid = $this->masterForm->id ?? 'x';
+
+    $kpiFactorBarChart = Chartjs::build()
+      ->name("KpiFactorBarChart_$uid")
+      ->type("bar")
+      ->size(["width" => 900, "height" => 300])
+      ->labels($this->kpiChart['labels'])
+      ->datasets([
+        [
+          "label" => "Skor per Faktor (0–100)",
+          "data" => $this->kpiChart['scores'],
+          "borderWidth" => 1,
+          "borderRadius" => 6,
+        ]
+      ])
+      ->options([
+        "responsive" => true,
+        "maintainAspectRatio" => false,
+        "indexAxis" => "y",
+        "scales" => [
+          "x" => [
+            "min" => 0,
+            "max" => 100,
+            "ticks" => ["stepSize" => 10],
+          ],
+        ],
+        "plugins" => [
+          "legend" => ["display" => true],
+          "title" => ["display" => true, "text" => "Skor per Faktor"],
+        ],
+      ]);
+
+    $kpiWeightDoughnutChart = Chartjs::build()
+      ->name("KpiWeightDoughnutChart_$uid")
+      ->type("doughnut")
+      ->size(["width" => 900, "height" => 300])
+      ->labels($this->kpiChart['labels'])
+      ->datasets([
+        [
+          "label" => "Bobot (%)",
+          "data" => $this->kpiChart['weights'],
+          "borderWidth" => 1,
+        ]
+      ])
+      ->options([
+        "responsive" => true,
+        "maintainAspectRatio" => false,
+        "plugins" => [
+          "legend" => ["position" => "bottom"],
+          "title" => ["display" => true, "text" => "Komposisi Bobot Faktor"],
+        ],
+        "cutout" => "60%",
+      ]);
+
+    $kpiFinalLineChart = Chartjs::build()
+      ->name("KpiFinalLineChart_$uid")
+      ->type("line")
+      ->size(["width" => 900, "height" => 260])
+      ->labels($this->kpiTrendChart['labels'] ?? [])
+      ->datasets([
+        [
+          "label" => "Skor Akhir KPI (0–100)",
+          "data" => $this->kpiTrendChart['scores'] ?? [],
+          "tension" => 0.35,
+          "borderWidth" => 2,
+          "pointRadius" => 4,
+          "pointHoverRadius" => 6,
+          "fill" => false,
+        ]
+      ])
+      ->options([
+        "responsive" => true,
+        "maintainAspectRatio" => false,
+        "scales" => [
+          "y" => [
+            "min" => 0,
+            "max" => 100,
+            "ticks" => ["stepSize" => 10],
+          ],
+        ],
+        "plugins" => [
+          "legend" => ["display" => true],
+          "title" => ["display" => true, "text" => "Tren Skor Akhir KPI (6 Periode Terakhir)"],
+        ],
+      ]);
+
+    return compact('kpiFactorBarChart', 'kpiWeightDoughnutChart', 'kpiFinalLineChart');
+  }
 
   public function toggleActive(): void
   {
@@ -143,6 +248,7 @@ class UserCrudForm extends Component
     }
 
 
+    // dd($validated);
     // 🔒 TRANSAKSI BIAR AMAN
     DB::transaction(function () use ($validated) {
 
@@ -183,76 +289,64 @@ class UserCrudForm extends Component
   // =========================
   public function update()
   {
-    if ($this->isReadonly) {
-      return redirect()->route('user.index');
-    }
+    if ($this->isReadonly) return redirect()->route('user.index');
 
     $id = (int) ($this->masterForm->id ?? 0);
     if ($id <= 0) {
       abort(400, 'User id tidak ada untuk update.');
     }
 
-    $validated = $this->masterForm->validate(
+    $validatedForm = $this->masterForm->validate(
       $this->masterForm->rules($id)
     );
+
 
     if (!$this->masterForm->queue_number) {
       $lastQueue = (int) (User::max('queue_number') ?? 0);
       $this->masterForm->queue_number = $lastQueue + 1;
     }
 
-    DB::beginTransaction();
+    DB::transaction(function () use ($validatedForm, $id) {
+      $user = User::query()->with('detail')->findOrFail($id);
 
-    try {
-      // ======================
-      // USERS
-      // ======================
-      $user = User::findOrFail($id);
+      $userPayload = [
+        'name'         => $validatedForm['name'],
+        'email'        => $validatedForm['email'],
+        'is_activated' => (int) ($validatedForm['is_activated'] ?? $user->is_activated),
+        'queue_number' => $validatedForm['queue_number'] ?? $user->queue_number,
+      ];
 
-      $user->update([
-        'name'         => $validated['name'],
-        'email'        => $validated['email'],
-        'password'     => !empty($validated['password'])
-          ? Hash::make($validated['password'])
-          : $user->password,
-        'is_activated' => (int) ($validated['is_activated'] ?? 1),
-        'queue_number' => $validated['queue_number']
-          ?? $user->queue_number,
-      ]);
+      // password optional
+      if (!empty($validatedForm['password'])) {
+        $userPayload['password'] = bcrypt($validatedForm['password']);
+      }
 
-      // ======================
-      // USER DETAILS
-      // ======================
+      $user->update($userPayload);
+
+      // DETAIL payload
+      $detailPayload = [
+        'phone'          => $validatedForm['phone'] ?? null,
+        'address'        => $validatedForm['address'] ?? null,
+        'birth_date'     => $validatedForm['birth_date'] ?? null,
+        'gender'         => $validatedForm['gender'] ?? null,
+        'marital_status' => $validatedForm['marital_status'] ?? null,
+      ];
+
       $user->detail()->updateOrCreate(
         ['user_id' => $user->id],
-        [
-          'phone'          => $validated['phone'] ?? null,
-          'address'        => $validated['address'] ?? null,
-          'birth_date'     => $validated['birth_date'] ?? null,
-          'gender'         => $validated['gender'] ?? null,
-          'marital_status' => $validated['marital_status'] ?? null,
-        ]
+        $detailPayload
       );
+    });
 
-      DB::commit();
-
-      session()->flash('message', 'User berhasil diperbarui');
-      return redirect()->route('user.index');
-    } catch (\Throwable $e) {
-      DB::rollBack();
-
-      report($e);
-
-      session()->flash('error', 'Terjadi kesalahan saat memperbarui user');
-      return redirect()->back();
-    }
+    // session()->flash('message', 'Data berhasil diupdate');
+    return redirect()->route('user.index');
   }
-
 
   public function render()
   {
+    $charts = $this->buildCharts();
 
-    return view('livewire.user.components.user-crud-form')
+    return view('livewire.user.components.user-chart', $charts)
       ->title($this->title);
   }
 }

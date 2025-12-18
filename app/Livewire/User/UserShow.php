@@ -8,7 +8,7 @@ use App\Models\User;
 class UserShow extends Component
 {
   public $title = 'User (Lihat)';
-  public string $url = '/user';
+  public string $url = '/users';
   public $user;
 
 

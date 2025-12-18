@@ -1,5 +1,10 @@
 <x-header title="{{ $title }}" subtitle="" separator>
   <x-slot:actions>
+    {{-- Search --}}
+    <div class="my-2">
+      <x-input placeholder="Search name / email..." wire:model.live.debounce.300ms="search" icon="o-magnifying-glass"
+        clearable />
+    </div>
     @if (empty($id))
       @if ('/' . request()->path() == $url . '/create')
       @else
