@@ -13,7 +13,7 @@ use Livewire\WithFileUploads;
 use App\Imports\UsersImport;
 use Illuminate\Support\Facades\Storage;
 use App\Livewire\User\Forms\UserFilterForm;
-use App\Livewire\User\Forms\ValidatedFilterForm;
+use App\Livewire\User\Forms\UserValidatedFilterForm;
 
 
 class UserIndex extends Component
@@ -32,8 +32,6 @@ class UserIndex extends Component
 
 
     public UserFilterForm $filterForm;
-    public ValidatedFilterForm $validatedFilterForm;
-
 
     public function filter(): void
     {
@@ -45,8 +43,7 @@ class UserIndex extends Component
                 'filterForm.queue_number' => 'nullable',
             ],
         );
-        $this->validatedFilterForm->fill($validatedData['filterForm']);
-
+        $this->validatedFilterForm =  $validatedData['filterForm'];
         $this->resetPage();
         $this->filterDrawer = false;
     }
@@ -71,24 +68,49 @@ class UserIndex extends Component
 
     public function toggleActive(int $userId): void
     {
-        DB::transaction(function () use ($userId) {
+        DB::beginTransaction();
+        try {
             $user = User::findOrFail($userId);
-            $user->update([
-                'is_activated' => !$user->is_activated,
-            ]);
-        });
 
-        $this->validatedFilterForm->is_activated = null;
-        $this->resetPage();
+            $old = $user->is_activated;
+            if ($old == 1) {
+                $new = 0;
+            } else {
+                $new = 1;
+            }
+            $user->update([
+                'is_activated' => $new,
+            ]);
+
+
+            DB::commit();
+
+            $this->refresh();
+            $this->resetPage(); // reset pagination, sehingga getRowsProperty dipanggil ulang
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+        }
     }
 
-
-
+    public array $validatedFilterForm = [
+        'name' => null,
+        'email' => null,
+        'is_activated' => null,
+        'queue_number' => null,
+    ];
 
     public function clear(): void
     {
         $this->filterForm->reset();
-        $this->validatedFilterForm->reset();
+
+        $this->validatedFilterForm = [
+            'name' => null,
+            'email' => null,
+            'is_activated' => null,
+            'queue_number' => null,
+        ];
+
         $this->search = '';
         $this->resetPage();
     }
@@ -139,29 +161,30 @@ class UserIndex extends Component
             })
 
             // Filter: name
-            ->when(!empty($this->validatedFilterForm->name), function ($q) {
-                $q->where('name', 'like', '%' . $this->validatedFilterForm->name . '%');
+            ->when(!empty($this->validatedFilterForm['name'] ?? ''), function ($q) {
+                $q->where('name', 'like', '%' . $this->validatedFilterForm['name'] . '%');
             })
 
             // Filter: email
-            ->when(!empty($this->validatedFilterForm->email), function ($q) {
-                $q->where('email', 'like', '%' . $this->validatedFilterForm->email . '%');
+            ->when(!empty($this->validatedFilterForm['email'] ?? ''), function ($q) {
+                $q->where('email', 'like', '%' . $this->validatedFilterForm['email'] . '%');
             })
 
             // Filter: queue_number
-            ->when(!empty($this->validatedFilterForm->queue_number), function ($q) {
-                $q->where('queue_number', 'like', '%' . $this->validatedFilterForm->queue_number . '%');
+            ->when(!empty($this->validatedFilterForm['queue_number'] ?? ''), function ($q) {
+                $q->where('queue_number', 'like', '%' . $this->validatedFilterForm['queue_number'] . '%');
             })
 
-            // Filter: is_activated
-            ->when(!is_null($this->validatedFilterForm->is_activated), function ($q) {
-                $q->where('is_activated', $this->validatedFilterForm->is_activated);
+
+            // Filter: is_activated (handle null / '')
+            ->when($this->validatedFilterForm['is_activated'], function ($q) {
+                $isActivated = filter_var($this->validatedFilterForm['is_activated'], FILTER_VALIDATE_BOOLEAN);
+                $q->where('is_activated', $isActivated);
             })
 
             ->orderBy($this->sortBy['column'], $this->sortBy['direction'])
             ->paginate(10);
     }
-
 
 
     public function render()

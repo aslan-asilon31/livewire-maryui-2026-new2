@@ -306,6 +306,8 @@ class UserChart extends Component
       $this->masterForm->queue_number = $lastQueue + 1;
     }
 
+
+
     DB::transaction(function () use ($validatedForm, $id) {
       $user = User::query()->with('detail')->findOrFail($id);
 

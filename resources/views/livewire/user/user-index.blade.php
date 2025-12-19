@@ -1,20 +1,9 @@
 <div>
   <x-list-menu :title="$title" :url="$url" shadow />
 
-
-  {{-- Export Button --}}
-  {{-- <div class="my-3"> --}}
-
-  {{-- <small class="text-muted d-block mt-1">
-      Hanya bisa mengekspor file Excel (.xlsx)
-    </small> --}}
-  {{-- </div> --}}
-
   <div class="my-3">
-    {{-- Export Button --}}
     <x-button label="Export(Excel)" @click="$wire.drawerExport = true" responsive icon="o-arrow-up" class="btn-primary" />
 
-    {{-- Import Button --}}
     <x-button label="Import(Excel)" @click="$wire.drawerImport = true" responsive icon="o-arrow-down"
       class="btn-secondary" />
 

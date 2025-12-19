@@ -129,36 +129,27 @@ class UserCrudForm extends Component
 
     $this->isEditMode = false;
 
-    if (empty($this->masterForm->id)) {
-      $this->masterForm->id = random_int(1, 500);
-    }
-
+    // VALIDASI
     $validated = $this->masterForm->validate(
-      $this->masterForm->rules($this->masterForm->id)
+      $this->masterForm->rules()
     );
 
-    if (!$this->masterForm->queue_number) {
-      $lastQueue = (int) (User::max('queue_number') ?? 0);
-      $this->masterForm->queue_number = $lastQueue + 1;
-    }
+    DB::beginTransaction();
 
-
-    // 🔒 TRANSAKSI BIAR AMAN
-    DB::transaction(function () use ($validated) {
-
+    try {
       // ======================
       // USERS
       // ======================
+      $queueNumber = $validated['queue_number']
+        ?? ((int) (User::max('queue_number') ?? 0) + 1);
+
       $user = User::create([
         'name'         => $validated['name'],
         'email'        => $validated['email'],
         'password'     => Hash::make($validated['password']),
         'is_activated' => (int) ($validated['is_activated'] ?? 1),
-        'queue_number' => $validated['queue_number']
-          ?? ((User::max('queue_number') ?? 0) + 1),
+        'queue_number' => $queueNumber,
       ]);
-
-      // ✅ SET ID SETELAH CREATE (INI BARU BENAR)
 
       // ======================
       // USER DETAILS
@@ -170,12 +161,25 @@ class UserCrudForm extends Component
         'gender'         => $validated['gender'] ?? null,
         'marital_status' => $validated['marital_status'] ?? null,
       ]);
-    });
 
-    session()->flash('message', 'User berhasil dibuat');
+      DB::commit();
 
-    return redirect()->route('user.index');
+      session()->flash('message', 'User berhasil dibuat');
+      return redirect()->route('user.index');
+    } catch (\Throwable $th) {
+      DB::rollBack();
+
+      report($th);
+
+      session()->flash(
+        'error',
+        'Gagal membuat user. ' . $th->getMessage()
+      );
+
+      return redirect()->back();
+    }
   }
+
 
 
   // =========================
@@ -189,17 +193,13 @@ class UserCrudForm extends Component
 
     $id = (int) ($this->masterForm->id ?? 0);
     if ($id <= 0) {
-      abort(400, 'User id tidak ada untuk update.');
+      abort(400, 'User ID tidak valid untuk update.');
     }
 
+    // VALIDASI
     $validated = $this->masterForm->validate(
       $this->masterForm->rules($id)
     );
-
-    if (!$this->masterForm->queue_number) {
-      $lastQueue = (int) (User::max('queue_number') ?? 0);
-      $this->masterForm->queue_number = $lastQueue + 1;
-    }
 
     DB::beginTransaction();
 
@@ -238,15 +238,20 @@ class UserCrudForm extends Component
 
       session()->flash('message', 'User berhasil diperbarui');
       return redirect()->route('user.index');
-    } catch (\Throwable $e) {
+    } catch (\Throwable $th) {
       DB::rollBack();
 
-      report($e);
+      report($th);
 
-      session()->flash('error', 'Terjadi kesalahan saat memperbarui user');
+      session()->flash(
+        'error',
+        'Gagal memperbarui user. ' . $th->getMessage()
+      );
+
       return redirect()->back();
     }
   }
+
 
 
   public function render()
