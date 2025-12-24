@@ -11,6 +11,9 @@ use App\Http\Controllers\MailController;
 Route::get('send-mail', [MailController::class, 'index']);
 
 
+Route::get('/sales', \App\Livewire\Sales\SalesIndex::class)->name('sales.index');
+
+
 Route::get('/users', \App\Livewire\User\UserIndex::class)->name('user.index');
 Route::get('/users/create', \App\Livewire\User\UserCreate::class)->name('user.create');
 

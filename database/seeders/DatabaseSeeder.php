@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             FileSeeder::class,
             JabatanSeeder::class,
+            ProductAndSalesSeeder::class,
         ]);
     }
 }
