@@ -55,14 +55,6 @@
         @endif
 
         <x-menu-item title="Dashboard" icon="o-home" link="/" />
-        <x-menu-item title="User" icon="o-users" link="/users" />
-        {{-- <x-menu-item title="Report" icon="o-document-text" link="/report" />
-        <x-menu-item title="Sales" icon="o-shopping-bag" link="/sales" />
-        <x-menu-item title="Vendor" icon="o-truck" link="/vendor" />
-        <x-menu-item title="Inventory" icon="o-cube" link="/inventory" />
-        <x-menu-item title="Procurement" icon="o-shopping-cart" link="/procurement" />
-        <x-menu-item title="Finance" icon="o-credit-card" link="/finance" /> --}}
-
 
         <x-menu-sub title="Settings" icon="o-cog-6-tooth">
           <x-menu-item title="Wifi" icon="o-wifi" link="####" />
